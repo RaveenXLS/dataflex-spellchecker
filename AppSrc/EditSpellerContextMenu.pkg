@@ -1,0 +1,217 @@
+Use cCJStandardMenuItemClasses.pkg
+
+Register_Procedure ApplyCorrection
+Register_Procedure AddToDictionary
+Register_Procedure IgnoreWord
+
+Enum_List
+  Define SCF_Suggestion
+  Define SCF_Dictionary
+  Define SCF_IgnoreWord
+End_Enum_List
+
+Class cSuggestionMenuItem is a cCJMenuItem
+  Procedure Construct_Object
+    Forward Send Construct_Object
+    Property String  psSuggestion 
+    Property String  psPrivateImage
+    Property Integer peMode SCF_Suggestion
+  End_Procedure
+
+  Procedure OnExecute Variant vCommandBarControl
+    Integer eMode
+    Get peMode to eMode
+    If (eMode=SCF_Suggestion) Delegate Send ApplySuggestion      (Self)
+    If (eMode=SCF_Dictionary) Delegate Send AddWordSuggestion    (Self)
+    If (eMode=SCF_IgnoreWord) Delegate Send IgnoreWordSuggestion (Self)
+  End_Procedure
+End_Class
+
+Object oEditSpellerContextMenu is a cCJContextMenu
+  
+  Property String[] paSuggestions
+  Property Handle[] phoArrayOfItems
+  Property Handle phoInvokingObject
+  Property String psSelectedWord
+  Property Integer piIconId -1
+  
+  Object oUndoMenuItem is a cCJUndoMenuItem
+  End_Object
+  
+  Object oCutMenuItem is a cCJCutMenuItem
+    Set pbControlBeginGroup to True
+  End_Object
+  
+  Object oCopyMenuItem is a cCJCopyMenuItem
+  End_Object
+  
+  Object oPasteMenuItem is a cCJPasteMenuItem
+  End_Object
+  
+  Object oDeleteItem is a cCJDeleteEditMenuItem
+  End_Object
+  
+  Object oSelectAllMenuItem is a cCJSelectAllMenuItem
+    Set pbControlBeginGroup to True
+  End_Object
+
+  // Speller Suggestions
+  
+  Object oRefreshSpellCheckMenuItem is a cCJMenuItem
+    Set psCaption to "Spelling..."
+    Set psToolTip to "Check Spelling"
+    Set psDescription to "Check Spelling"
+    Set psShortcut to "F7"
+    Set psCategory to C_$CategoryEdit
+    Set pbControlBeginGroup to True
+    Set pbActiveUpdate to True
+    Procedure OnExecute Variant vCommandBarControl
+      Send RefreshSpellCheck
+    End_Procedure
+    Function IsEnabled Returns Boolean
+      Boolean bEnabled bReadOnly
+      Get Enabled_State of (Focus(Self)) to bEnabled
+      If (bEnabled) Begin
+        Get Read_Only_State of (Focus(Self)) to bReadOnly
+        Move (not(bReadOnly)) to bEnabled
+      End
+      // If (bEnabled) Get pbSpellCheck of (Focus(Self)) to bEnabled
+      Function_Return bEnabled
+    End_Function
+  End_Object
+  
+  Procedure RefreshSpellCheck
+    Handle hoInvokingObject 
+    Get phoInvokingObject to hoInvokingObject
+    If (hoInvokingObject) Send RefreshSpellCheck of hoInvokingObject
+  End_Procedure
+  
+  Procedure ApplySuggestion Handle hoMenuItem
+    Handle hoInvokingObject 
+    Get phoInvokingObject to hoInvokingObject
+    If (hoInvokingObject) Send ApplyCorrection of hoInvokingObject (psSuggestion(hoMenuItem))
+  End_Procedure
+
+  Procedure AddWordSuggestion Handle hoMenuItem
+    Handle hoInvokingObject 
+    Get phoInvokingObject to hoInvokingObject
+    If (hoInvokingObject) Send AddToDictionary of hoInvokingObject (psSuggestion(hoMenuItem))
+  End_Procedure
+
+  Procedure IgnoreWordSuggestion Handle hoMenuItem
+    Handle hoInvokingObject 
+    Get phoInvokingObject to hoInvokingObject
+    If (hoInvokingObject) Send IgnoreWord of hoInvokingObject (psSuggestion(hoMenuItem))
+  End_Procedure
+
+  Procedure DestroyOldSuggestions
+    Handle[] hoArrayOfItems
+    Integer iItm
+    
+    Get phoArrayofItems to hoArrayOfItems
+    Move (SizeOfArray(hoArrayOfItems)) to iItm
+    While (iItm>0)
+      Decrement iItm
+      Send Destroy of hoArrayOfItems[iItm]
+    Loop
+    Set phoArrayofItems to (ResizeArray(hoArrayOfItems,0))
+  End_Procedure
+  
+  Procedure OnCreate
+    tWinGrpIconDir GroupIconDir
+    Handle hoCommandBars
+    Integer iIconId
+    String  sIcon
+    Boolean bOK
+    
+    Forward Send OnCreate
+    
+    Get CommandBarSystemObject to hoCommandBars
+    Get piIconId to iIconId
+    If (iIconId<0 and hoCommandBars) Begin
+      Move "tools-check-spelling-5.ico" to sIcon
+      Get GetIconGroupData of hoCommandBars sIcon (&GroupIconDir) to bOK
+      If (not(bOK)) Begin
+        Get_File_Path sIcon to sIcon // find path in DFPATH, if appropriate
+        Move (not(sIcon="")) to bOK
+      End
+      If (bOK) Begin
+        Get AddImage of hoCommandBars sIcon 0 xtpImageNormal to iIconId
+        Set piIconId to iIconId
+      End
+    End
+  End_Procedure
+  
+  Procedure OnPopupInit Variant vCommandBarControl Handle hoCommandBarControls
+    Handle[] hoArrayOfItems
+    String[] aSuggestions
+    String  sSelectedWord
+    Integer iItm iMax
+    Integer iIconId
+    Handle  hoNewItem
+    Handle  hoPopItem
+    Variant vItem
+    
+    Get piIconId to iIconId
+    Get paSuggestions  to aSuggestions
+    Move (SizeOfArray(aSuggestions)) to iMax
+    If (iMax>0) Begin
+      Get psSelectedWord to sSelectedWord
+      
+      Get Create (RefClass(cCJCommandBarPopup)) to hoPopItem
+      
+      For iItm from 0 to (iMax-1)
+        Get Create (RefClass(cSuggestionMenuItem)) to hoNewItem
+        Move hoNewItem to hoArrayOfItems[-1]
+        
+        // psImage Not Supported within cCJCommandBarPopup
+        // Set psImage   of hoNewItem to "tools-check-spelling-5.ico"
+        Set psCaption    of hoNewItem to aSuggestions[iItm]
+        Set psSuggestion of hoNewItem to aSuggestions[iItm]
+        Set pbControlBeginGroup of hoNewItem to (iItm=0)
+        
+        Get AddDynamicControl of hoNewItem hoCommandBarControls to vItem
+        If (not(IsNullComObject(vItem))) Begin
+          Set pvComObject of hoPopItem to vItem
+          If (iIconId>0) Set ComIconId of hoPopItem to iIconId
+        End
+        
+      Loop
+      
+      If (not(sSelectedWord="")) Begin
+        Get Create (RefClass(cSuggestionMenuItem)) to hoNewItem
+        Move hoNewItem to hoArrayOfItems[-1]
+        
+        Set peMode       of hoNewItem to SCF_Dictionary
+        Set psCaption    of hoNewItem to "Add to Dictionary"
+        Set psSuggestion of hoNewItem to sSelectedWord
+        Set pbControlBeginGroup of hoNewItem to True
+        Get AddDynamicControl   of hoNewItem hoCommandBarControls to vItem
+      End
+      
+      // ToDo: Ignore Word
+      // DLL works but unable to refresh DF control, red-squiggly line still appears
+      // If (not(sSelectedWord="")) Begin
+      //   Get Create (RefClass(cSuggestionMenuItem)) to hoNewItem
+      //   Set peMode       of hoNewItem to SCF_IgnoreWord
+      //   Set psCaption    of hoNewItem to "Ignore"
+      //   Set psSuggestion of hoNewItem to sSelectedWord
+      //   Set pbControlBeginGroup of hoNewItem to True
+      //   Get AddDynamicControl   of hoNewItem hoCommandBarControls to vItem
+      //   Move hoNewItem to hoArrayOfItems[-1]
+      // End
+      
+      Send Destroy of hoPopItem
+      
+    End
+    Set phoArrayOfItems to hoArrayOfItems
+  End_Procedure
+  
+  Procedure Popup
+    Handle hoInvokingObject
+    Send DestroyOldSuggestions
+    Get phoInvokingObject to hoInvokingObject
+    If (hoInvokingObject) Forward Send popup
+  End_Procedure
+  
+End_Object

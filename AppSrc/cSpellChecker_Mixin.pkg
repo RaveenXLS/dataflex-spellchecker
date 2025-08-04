@@ -1,0 +1,419 @@
+Use cTextEdit.pkg
+Use Winuser.pkg
+
+// Keyboard Events
+#IFDEF KEYEVENTF_KEYUP
+#ELSE
+Define KEYEVENTF_KEYUP for |CI$0002
+#ENDIF
+
+#IFNDEF Get_WinKeybd_Event
+External_Function WinKeybd_Event "keybd_event" 	User32.dll UChar bVK UChar bScan DWord dwFlags Pointer dwExtraInfo ;
+    Returns Integer // VOID
+#ENDIF
+
+// Edit Control Messages
+#IFDEF IMF_SPELLCHECKING
+#ELSE
+Define EM_GETAUTOURLDETECT for (WM_USER + 92)
+Define EM_SETLANGOPTIONS   for (WM_USER + 120)
+Define EM_GETLANGOPTIONS   for (WM_USER + 121)
+Define EM_GETEDITSTYLE     for (WM_USER + 205)
+Define IMF_SPELLCHECKING   for |CI$0800
+Define IMF_TKBPREDICTION   for |CI$1000
+#ENDIF
+
+#IF (!@ > 191)
+// https://www.andiamo.co.uk/resources/iso-language-codes/
+// ISpellCheckerFactory Interface
+External_Function SCW_GetSpellSuggestions "GetSpellSuggestions" SpellCheckWrapper.dll ;
+    Pointer lpWord Pointer lpLang Pointer lpSuggestions Integer iMaxLen Returns Integer // Number of Suggestions
+
+External_Function SCW_AddWordToDictionary "AddWordToDictionary" SpellCheckWrapper.dll ;
+    Pointer lpWord Pointer lpLang Returns Integer // 0=OK
+
+External_Function SCW_IgnoreWord "IgnoreWord" SpellCheckWrapper.dll ;
+    Pointer lpWord Pointer lpLang Returns Integer // 0=OK
+
+#ENDIF
+
+Use EditSpellerContextMenu.pkg
+
+Class cSpellChecker_Mixin is a Mixin
+  
+  Procedure Define_SpellChecker_Mixin
+    { DesignTime=False }
+    Property Integer piAbsoluteLeft
+    { DesignTime=False }
+    Property Integer piAbsoluteRight
+    { MethodType=Property Category="Spelling" InitialValue="en-NZ"}
+    { EnumList="en-NZ, en-US, en-GB, en-CA, fr-CA" }
+    Property String  psDefLanguage "en-NZ"
+    { MethodType=Property Category="Spelling" InitialValue=False}
+    Property Boolean pbSpellCheck False
+    { MethodType=Property Category="Spelling" }
+    { Description="Limits the number of items displayed in a suggestion list"}
+    Property Integer piMaxResults 15
+  End_Procedure
+  
+  Procedure End_Define_SpellChecker_Mixin
+    #IF (!@ > 191)
+    If (pbSpellCheck(Self)) ;
+      Set Floating_Menu_Object to oEditSpellerContextMenu
+    
+    On_Key Key_F7 Send RefreshSpellCheck   
+    #ENDIF
+  End_Procedure // End_Construct_Object
+  
+  Procedure Page_Object Boolean bPage
+    Integer iOptions
+    Forward Send Page_Object bPage
+    If (bPage) Begin
+      #IF (!@ > 191)
+      If (pbSpellCheck(Self)) Begin
+        Get  Windows_Message EM_GETLANGOPTIONS 0 0 to iOptions
+        Send Windows_Message EM_SETLANGOPTIONS 0 (iOptions ior IMF_SPELLCHECKING)
+      End
+      #ENDIF
+    End
+  End_Procedure // Page_Object
+  
+  Procedure ApplyCorrection String sWord
+    Integer iAbLeft iAbRight iLength1 iLength2 iDiff
+    String sBefore sAfter sOrig sText
+    Integer iLine iOffset iLastPos
+    
+    Get LineFromChar -1 to iLine
+    Get FirstCharInLinePos iLine to iOffSet
+    Get Line iLine to sText
+    Move (Length(sText)) to iLastPos
+    Move (iOffset+iLastPos) to iLastPos
+    
+    Get piAbsoluteLeft to iAbLeft
+    Get piAbsoluteRight to iAbRight
+    Move (iABRight-iAbLeft) to iLength1
+    If (iAbLeft=iAbRight) Procedure_Return
+    If (iAbLeft>0) Move (iAbLeft-1) to iAbLeft
+    
+    If ((iABRight<iLastPos) and (iAbleft<>0)) Move (iAbRight+1) to iABRight
+    
+    
+    Move (iABRight-iAbLeft) to iLength2
+    Move (iLength2-iLength1) to iDiff
+    
+    Send SetSel iAbLeft iAbRight
+    Get SelText to sOrig
+    Move (Left(sOrig,1)) to sBefore
+    Move (Right(sOrig,1)) to sAfter
+    
+    Move (Length(sWord)) to iLength1
+    Move (Length(sOrig)) to iLength2
+    //words are the same size ... just replace
+    If (iDiff<=0) Begin
+      //do nothing
+    End
+    //Only the beginning or end needs to be added
+    //must figure out which one
+    If (iDiff=1) Begin
+      If ((Left(sOrig,iLength1))=sWord) Begin
+        Move (sWord+(String(sAfter))) to sWord
+      End
+      Else Begin
+        Move ((String(sBefore))+sWord) to sWord
+      End
+    End
+    //add both first and last char.
+    If (iDiff=2) Begin
+      Move ((String(sBefore))+sWord+(String(sAfter))) to sWord
+    End
+    Send ReplaceSel sWord
+  End_Procedure
+  
+  Function NormaliseSelText String sText Returns String
+    String sSpecialChars sChr
+    Integer iMax iChr
+    
+    Move ("!" + '"') to sSpecialChars
+    Append sSpecialChars ",:;.-()'\/|+=?"
+    
+    Move (Length(sSpecialChars)) to iMax
+    For iChr from 1 to iMax
+      Move (Mid(sSpecialChars,1,iChr)) to sChr
+      If (Pos(sChr, sText)) Move (Replaces(sChr,sText, " ")) to sText
+    Loop
+    Function_Return sText
+  End_Function
+  
+  { Visibility=Public }
+  Function GetWordAtCursor Returns String
+    tWinPoint MousePointer RelPoint
+    Boolean bLeftDone bRightDone
+    Integer iStartSel iEndSel
+    Integer iRetVal iLoc iOrgPos
+    Integer iSelStart iPos2
+    Integer iOrgStart iOrgEnd
+    Integer RelPosX RelPosY
+    Integer iOffSet iLine
+    Integer iMaxLen iVoid
+    Integer iRow iCol
+    String  sText
+    String  sWord
+    
+    // Store away current selections
+    Get SelStart to iOrgStart
+    Get SelEnd   to iOrgEnd
+    
+    // getting the mouse position
+    // These are absolut co-ordinated i.e. from the corner of the screen
+    Move 0 to MousePointer.x
+    Move 0 to MousePointer.y
+    Move (GetCursorPos(addressof(MousePointer))) to iRetVal
+
+    // getting the origin of the textedit control
+    Get Absolute_GuiOrigin to iLoc
+    Move (Hi(iLoc))  to iRow
+    Move (Low(iLoc)) to iCol
+    
+    // adjust row and column for negative co-ordinates!        
+    If (iCol>32767) Begin    
+      Move (iCol-65536) to iCol
+    End
+    If (iRow>32767) Begin
+      Move (iRow-65536) to iRow
+    End
+    
+    // calculating the relative positin of the mouse within the textedit control
+    Move (MousePointer.x-iCol) to RelPosX
+    Move (MousePointer.y-iRow) to RelPosy
+    
+    Move RelPosX to RelPoint.x
+    Move RelPosY to RelPoint.y
+    
+    //https://learn.microsoft.com/en-us/windows/win32/controls/em-charfrompos
+    Get Windows_Message EM_CHARFROMPOS 0 (AddressOf(RelPoint)) to iOrgPos
+    
+    // simulating a left click
+    Send Windows_Message WM_LBUTTONDOWN 0 (RelPosX+(RelPosY*65336))
+    Send Windows_Message WM_LBUTTONUP   0 (RelPosX+(RelPosY*65336))
+    
+    // getting the current line number
+    Get LineFromChar -1 to iLine
+    // getting the offset of the current line from the start of the text
+    Get FirstCharInLinePos iLine to iOffSet
+    // getting the length of the current line from the start of the text
+    Get LineLength  iLine to iMaxLen
+    
+    Move '' to sWord // Reset
+    
+    If (iOrgPos < (iOffset+iMaxLen)) Begin
+      Move (iOrgPos max iOffset) to iStartSel
+      Move ((iStartSel+1) min (iOffset+iMaxLen)) to iEndSel
+      
+      Repeat
+        Send SetSel iStartSel iEndSel
+        Get SelText to sText
+        
+        Get NormaliseSelText sText to sText
+        
+        // check Left
+        If (not(bLeftDone)) Move ((Left(sText,1)=" ") or iStartSel=iOffset) to bLeftDone
+        If (not(bLeftDone)) Decrement iStartSel
+        
+        // check right
+        If (not(bRightDone)) Move ((Right(sText,1)=" ") or iEndSel=(iOffset+iMaxLen)) to bRightDone
+        If (not(bRightDone)) Increment iEndSel
+      Until (bLeftDone and bRightDone)
+      
+      // set the selection to the word we have found
+      If (Left(sText,1) =" ") Increment iStartSel
+      If (Right(sText,1)=" ") Decrement iEndSel
+      Set piAbsoluteLeft  to iStartSel
+      Set piAbsoluteRight to iEndSel
+      Send SetSel iStartSel iEndSel
+      
+      // Current cursor position in the text
+      Get SelStart to iSelStart
+      Get SelText to sWord
+      
+      Move (Pos(" ",sWord)) to iPos2
+      If (iPos2=0) Move (Pos("@",sWord)) to iPos2
+      If (iPos2=0) Move (Pos("#",sWord)) to iPos2
+      If (iPos2=0) Move (Pos("$",sWord)) to iPos2
+      If (iPos2=0) Move (Pos("%",sWord)) to iPos2
+      If (iPos2=0) Move (Pos("^",sWord)) to iPos2
+      If (iPos2=0) Move (Pos("&",sWord)) to iPos2
+      If (iPos2=0) Move (Pos("*",sWord)) to iPos2
+      If (iPos2=0) Move (Pos("~",sWord)) to iPos2
+      
+      If (iPos2>0) Move '' to sWord
+    End
+    
+    // Send SetSel iOrgStart iOrgEnd
+    
+    Function_Return sWord
+  End_Function
+  
+  { Visibility=Public }
+  Function GetSuggestions String sWord Returns String[]
+    WString wsWord wsOutput wsLang
+    Integer iRet iBytes iMaxResults
+    String[] aSuggestions
+    
+    Move 1024  to iBytes // 1KB of Suggestions
+    Move sWord to wsWord
+    Get psDefLanguage to wsLang
+    
+    Move (Repeat(Character(0), iBytes)) to wsOutput
+    Move (SCW_GetSpellSuggestions(AddressOf(wsWord), AddressOf(wsLang), AddressOf(wsOutput), iBytes)) to iRet
+    If (iRet > 0) Begin
+      Get piMaxResults to iMaxResults
+      Move (StrSplitToArray(CString(wsOutput), ",")) to aSuggestions
+      If (SizeOfArray(aSuggestions)>iMaxResults) ;
+        Move (ResizeArray(aSuggestions,iMaxResults)) to aSuggestions
+    End
+    
+    Function_Return aSuggestions
+  End_Function
+  
+  Procedure SelectAll
+    Integer iVoid
+    // Send SETSEL 0 -1
+    Move (WinKeybd_Event(VK_CONTROL, 0, 0, 0)) to iVoid
+    Move (WinKeybd_Event(Ascii('A'), 0, 0, 0)) to iVoid
+    Move (WinKeybd_Event(Ascii('A'), 0, KEYEVENTF_KEYUP, 0)) to iVoid
+    Move (WinKeybd_Event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)) to iVoid
+    Send PumpMsgQueue of Desktop
+  End_Procedure
+
+  Function AllowSpellCheck Returns Boolean
+    Boolean bEnabled bReadOnly
+    Get pbSpellCheck to bEnabled
+    If (bEnabled) Get Enabled_State to bEnabled
+    If (bEnabled) Begin
+      Get Read_Only_State to bReadOnly
+      Move (not(bReadOnly)) to bEnabled
+    End
+    Function_Return bEnabled
+  End_Function
+  
+  Procedure RefreshSpellCheck
+    Boolean bEnabled bReadOnly
+    Handle  hWnd
+    String  sText
+    Integer iState
+    Integer iErr iVoid
+    Integer iStart iEnd
+    
+    // Force a repaint to refresh spell check
+    Get AllowSpellCheck to bEnabled
+    Get Window_Handle to hWnd
+    If (hWnd and bEnabled) Begin
+      Get SelStart to iStart
+      Get SelEnd   to iEnd
+            
+      // simulating a left click
+      Get Dynamic_Update_State to iState
+      Move (SetFocus(hWnd)) to iVoid
+      
+      Set Dynamic_Update_State to False
+
+      // Send SETSEL 0 -1
+      Send SelectAll
+      Get SelText to sText  // COPY
+      Send PumpMsgQueue of Desktop
+
+      If (not(sText='')) Begin
+        Send ReplaceSel sText // PASTE
+        Send PumpMsgQueue of Desktop
+      End
+      
+      Set Dynamic_Update_State to iState
+      Send SetSel iStart iEnd
+    End
+  End_Procedure
+  
+  { Visibility=Public }
+  Procedure AddToDictionary String sWord 
+    Integer iErr
+    WString wsWord 
+    WString wsLang
+
+    Move sWord to wsWord
+    Get psDefLanguage to wsLang
+
+    Move (SCW_AddWordToDictionary(AddressOf(wsWord), AddressOf(wsLang))) to iErr
+    If (iErr=0) Begin
+      Send ApplyCorrection sWord 
+      Send RefreshSpellCheck
+    End
+    // Function_Return (iErr=0)  // Return True if successful
+  End_Procedure
+  
+  
+  { Visibility=Public }
+  Procedure IgnoreWord String sWord 
+    Handle  hWnd
+    Integer iErr iVoid
+    WString wsWord 
+    WString wsLang
+
+    Move sWord to wsWord
+    Get psDefLanguage to wsLang
+
+    Move (SCW_IgnoreWord(AddressOf(wsWord), AddressOf(wsLang))) to iErr
+    If (iErr=0) BEgin
+      Send ApplyCorrection sWord 
+      Send RefreshSpellCheck
+    End
+    // Function_Return (iErr=0)  // Return True if successful
+  End_Procedure
+  
+  Procedure Mouse_Down2 Integer iWindowNumber Integer iPosition
+    Handle hEdit hoContext
+    Boolean bEnabled
+    Integer iOptions
+    String sWord sText
+    String[] aSuggestions
+    String[] aWords
+    
+    Get Floating_Menu_object to hoContext
+    Get pbSpellCheck to bEnabled
+    If (bEnabled) Begin 
+      Get AllowSpellCheck to bEnabled
+      If (bEnabled) Begin 
+        // Is Highlighted
+        Get SelText to sText
+        While (Pos("  ", sText)) 
+          Move (Replaces("  ",sText," ")) to sText
+        Loop
+        Move (StrSplitToArray(Trim(sText), " ")) to aWords
+        Move (SizeOfArray(aWords)<=1) to bEnabled
+      End
+      If (bEnabled) Begin
+        Get GetWordAtCursor to sWord
+        If (not(sWord="")) Get GetSuggestions sWord to aSuggestions
+        Set paSuggestions     of oEditSpellerContextMenu to aSuggestions
+        Set psSelectedWord    of oEditSpellerContextMenu to sWord
+        Set phoInvokingObject of oEditSpellerContextMenu to (Self)
+      End
+      Else Begin
+        // Set paSuggestions  of oEditSpellerContextMenu to (ResizeArray(aSuggestions,0))
+        // Set psSelectedWord of oEditSpellerContextMenu to ""
+        Set Floating_Menu_object to Default_Form_Floating_Menu_Id // Temporary
+      End
+    End
+    Forward Send Mouse_Down2 iWindowNumber iPosition
+    Set Floating_Menu_object to hoContext
+  End_Procedure
+  
+  // Procedure Set Read_Only_State Boolean bState 
+  //   Boolean bEnabled
+  //   Forward Set Read_Only_State to bState
+  //   If (not(bState)) Begin
+  //     Get AllowSpellCheck to bEnabled
+  //     If (bEnabled) Send RefreshSpellCheck
+  //   End
+  // End_Procedure
+  
+End_Class
+
