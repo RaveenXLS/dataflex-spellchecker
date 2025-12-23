@@ -11,6 +11,7 @@
 *.dfo linguist-language=DataFlex
 *.tpl linguist-language=DataFlex
 *.ws linguist-language=DataFlex
+*.sws linguist-language=DataFlex
 
 # Binaries should not affect language stats
-*.dll linguist-vendored
+# *.dll linguist-vendored
