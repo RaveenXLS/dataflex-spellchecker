@@ -1,5 +1,7 @@
 # Spell Checker
 
+![Spell Checker example](spellchecker.png)
+
 ---
 
 ## Library Information
