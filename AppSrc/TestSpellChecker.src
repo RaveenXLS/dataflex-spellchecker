@@ -10,6 +10,19 @@ Object oApplication is a cApplication
   //     Use LoginEncryption.pkg
   //     Use DatabaseLoginDialog.dg
   // End_Object
+  Procedure OnCreate
+    String sDLLName
+    String sProgPath
+    Boolean bFound
+    Forward Send OnCreate
+    Move "SpellCheckWrapper.dll" to sDLLName
+    Get GetApplicationPath to sProgPath
+    File_Exist sDLLName bFound
+    If (not(bFound)) Begin
+      Send UserError (SFormat("Please ensure %1 is in folder:\n%2\n\nRefer to README.md",sDLLName,sProgPath)) (SFormat("Missing %1",sDLLName))
+      Abort
+    End
+  End_Procedure
 End_Object
 
 Use oEditContextMenu.pkg
@@ -19,10 +32,15 @@ Object oMain is a Panel
   
   Property Handle phoViewMenu 0
   Property Handle phoReportMenu 0
+
+  #IFDEF IS$WIN64
+  Set Label to "Spell Checker Test Project x64"
+  #ELSE
+  Set Label to "Spell Checker Test Project x86"
+  #ENDIF
   
-  Set Label to "Spell Checker Test Project"
   Set Location to 4 3
-  Set Size to 300 450
+  Set Size to 386 558
   
   Object oToolTipController is a cToolTipController
     Move Self to ghoToolTipController
@@ -32,6 +50,7 @@ Object oMain is a Panel
     Set pbTimerUpdate to True
     Set peVisualTheme to xtpThemeOffice2013Outlook
     Set pbAutoResizeIcons to True
+    Set pbTabbedWorkspaces to True
     
     Procedure OnCreateCommandBars
       Handle hoOptions
