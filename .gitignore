@@ -51,7 +51,8 @@ Data/*.hdr
 Data/*.dat
 Data/*.k??
 Data/*.k?
-Data/Filelist.cfg
+!Data/codemast*
+!Data/codetype*
 
 Help/*.chm
 New/*
@@ -64,5 +65,5 @@ AppSrc/TestView.src
 AppSrc/config/classlist.xml
 AppSrc/LoginEncryptionKey.inc
 
-DDSrc/DDClassList.xml
-
+!DDSrc/codemast*
+!DDSrc/codetype*
