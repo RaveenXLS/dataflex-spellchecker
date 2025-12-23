@@ -1,6 +1,6 @@
 # Spell Checker
 
-![Spell Checker example](spellchecker.png)
+![Spell Checker example](Images/spelchecker-example.png)
 
 ---
 
