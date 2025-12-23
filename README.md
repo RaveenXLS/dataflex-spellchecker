@@ -43,6 +43,11 @@ The wrapper DLL **must match the application architecture**:
 
 For deployment or testing, **copy the appropriate DLL to the same folder as your application EXE**.
 
+## Contributors
+
+This project was developed with collaboration and input from members of the DataFlex community.  
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for details.
+
 ## Licence
 
 This project is distributed under the terms of the included licence file.
