@@ -1,4 +1,4 @@
-*.src linguist-language=DataFlex
+# Treat DataFlex source
 *.vw linguist-language=DataFlex
 *.sl linguist-language=DataFlex
 *.dg linguist-language=DataFlex
@@ -10,7 +10,6 @@
 *.inc linguist-language=DataFlex
 *.dfo linguist-language=DataFlex
 *.tpl linguist-language=DataFlex
-*.tt? linguist-language=DataFlex
-*.utl linguist-language=DataFlex
-*.nui linguist-language=DataFlex
+
+# Binaries should not affect language stats
 *.dll linguist-vendored
