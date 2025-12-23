@@ -66,8 +66,3 @@ AppSrc/LoginEncryptionKey.inc
 
 DDSrc/DDClassList.xml
 
-# Optional: symbols in Bin folders
-Bin/*.pdb
-Bin/*.ilk
-Bin64/*.pdb
-Bin64/*.ilk
