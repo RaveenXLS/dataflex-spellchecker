@@ -1,0 +1,15 @@
+Use cTextEdit.pkg
+Use cSpellChecker_Mixin.pkg
+
+Class cSpellTextEdit is a cTextEdit
+  Import_Class_Protocol cSpellChecker_Mixin
+  Procedure Construct_Object
+    Forward Send Construct_Object
+    // Mixins
+    Send Define_SpellChecker_Mixin
+  End_Procedure
+  Procedure End_Construct_Object
+    Forward Send End_Construct_Object      
+    Send End_Define_SpellChecker_Mixin
+  End_Procedure // Construct_Object
+End_Class

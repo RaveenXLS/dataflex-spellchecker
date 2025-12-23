@@ -1,20 +1,8 @@
-Use Windows.pkg
+﻿Use Windows.pkg
 Use DFClient.pkg
 Use cTextEdit.pkg
-Use cSpellChecker_Mixin.pkg
-
-Class cSpellTextEdit is a cTextEdit
-  Import_Class_Protocol cSpellChecker_Mixin
-  Procedure Construct_Object
-    Forward Send Construct_Object
-    // Mixins
-    Send Define_SpellChecker_Mixin
-  End_Procedure
-  Procedure End_Construct_Object
-    Forward Send End_Construct_Object      
-    Send End_Define_SpellChecker_Mixin
-  End_Procedure // Construct_Object
-End_Class
+Use cSpellTextEdit.pkg
+Use cDbSpellTextEdit.pkg // Testing Only
 
 Deferred_View Activate_oTestSpellCheck for ;
 Object oTestSpellCheck is a dbView
@@ -23,14 +11,13 @@ Object oTestSpellCheck is a dbView
   Set Location to 2 1
   Set Label to "TestSpellCheck"
 
-  Object oTextEdit1 is a cSpellTextEdit
+  Object oSpellTextEdit is a cSpellTextEdit
     Set Size to 146 257
     Set Location to 14 16
     Set piFontSize to (12*18)
     Set Label to "Full SpellChecker"
-    #IF (!@ > 191)
+    Set psDefLanguage to "en-NZ"
     Set pbSpellCheck to True
-    #ENDIF
   End_Object
 
   Object oStdTextEdit is a cTextEdit
@@ -53,16 +40,14 @@ Object oTestSpellCheck is a dbView
     Set Location to 169 18
     Set Label to 'Set Value'
     Procedure OnClick
-      Set value of oTextEdit1 to """
-        For example using the text: the wordl has over 100 breeds of dogs
-        the red-squiggly line on the word "wordl" and if you right-click it it returns suggestion - great!
-        
-        But not when you set the value directly - why!!?? Need to figure out how to force trigger a spell check!
-        """
-      Send RefreshSpellCheck of oTextEdit1
+      Set value of oSpellTextEdit to """
+      For example, using the text "the wordl has over 100 breeds of dogs", 
+      a red squiggly line appears under the word "wordl", and right-clicking it returns a suggestion — great!
+      """
+      // This forces a Spell Check
+      Send RefreshSpellCheck of oSpellTextEdit
     End_Procedure // OnClick
   End_Object
-
-  
+ 
 
 Cd_End_Object

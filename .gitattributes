@@ -1,0 +1,15 @@
+*.src linguist-language=DataFlex
+*.vw linguist-language=DataFlex
+*.sl linguist-language=DataFlex
+*.dg linguist-language=DataFlex
+*.rv linguist-language=DataFlex
+*.bp linguist-language=DataFlex
+*.pkg linguist-language=DataFlex
+*.wo linguist-language=DataFlex
+*.dd linguist-language=DataFlex
+*.inc linguist-language=DataFlex
+*.dfo linguist-language=DataFlex
+*.tpl linguist-language=DataFlex
+*.tt? linguist-language=DataFlex
+*.utl linguist-language=DataFlex
+*.nui linguist-language=DataFlex
