@@ -1,4 +1,4 @@
-# Treat DataFlex source
+# DataFlex source
 *.vw linguist-language=DataFlex
 *.sl linguist-language=DataFlex
 *.dg linguist-language=DataFlex
@@ -14,4 +14,4 @@
 *.sws linguist-language=DataFlex
 
 # Binaries should not affect language stats
-# *.dll linguist-vendored
+*.dll linguist-vendored
